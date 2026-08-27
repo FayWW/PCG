@@ -1,0 +1,822 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Shipping Box Forecast — 装箱规格查询</title>
+  <style>
+    /* ── Reset & Base ── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    :root {
+      --primary:   #1a56db;
+      --primary-h: #1e429f;
+      --accent:    #0e9f6e;
+      --bg:        #f3f4f6;
+      --card:      #ffffff;
+      --border:    #e5e7eb;
+      --text:      #111827;
+      --muted:     #6b7280;
+      --danger:    #e02424;
+      --radius:    8px;
+    }
+    body {
+      font-family: "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+    }
+
+    /* ── Header ── */
+    header {
+      background: var(--primary);
+      color: #fff;
+      padding: 18px 24px;
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      box-shadow: 0 2px 8px rgba(0,0,0,.25);
+    }
+    header svg { flex-shrink: 0; }
+    header h1 { font-size: 1.3rem; font-weight: 700; letter-spacing: .02em; }
+    header p  { font-size: .82rem; opacity: .85; margin-top: 2px; }
+
+    /* ── Layout ── */
+    .container { max-width: 1100px; margin: 0 auto; padding: 20px 16px 40px; }
+
+    /* ── Card ── */
+    .card {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+      margin-bottom: 20px;
+    }
+    .card-title {
+      font-size: .78rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .07em;
+      color: var(--muted);
+      margin-bottom: 14px;
+    }
+
+    /* ── Search Controls ── */
+    .search-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      align-items: flex-end;
+    }
+    .field { display: flex; flex-direction: column; gap: 5px; }
+    .field label { font-size: .8rem; font-weight: 600; color: var(--muted); }
+
+    input[type="text"], input[type="number"], select {
+      height: 40px;
+      border: 1.5px solid var(--border);
+      border-radius: 6px;
+      padding: 0 12px;
+      font-size: .9rem;
+      font-family: inherit;
+      outline: none;
+      transition: border-color .15s;
+      background: #fff;
+      color: var(--text);
+    }
+    input[type="text"]:focus, input[type="number"]:focus, select:focus { border-color: var(--primary); }
+    #pnInput { width: 260px; }
+    .qty-input { width: 110px; }
+    .pallet-input { width: 82px; }
+
+    /* autocomplete wrapper */
+    .autocomplete-wrap { position: relative; }
+    #suggestions {
+      position: absolute;
+      top: calc(100% + 3px);
+      left: 0;
+      right: 0;
+      background: #fff;
+      border: 1.5px solid var(--primary);
+      border-radius: 6px;
+      max-height: 200px;
+      overflow-y: auto;
+      z-index: 100;
+      display: none;
+    }
+    #suggestions li {
+      list-style: none;
+      padding: 8px 12px;
+      font-size: .88rem;
+      cursor: pointer;
+    }
+    #suggestions li:hover, #suggestions li.active { background: #eff6ff; }
+    #suggestions li span.cat-badge {
+      display: inline-block;
+      font-size: .7rem;
+      background: #dbeafe;
+      color: var(--primary);
+      border-radius: 4px;
+      padding: 1px 5px;
+      margin-left: 6px;
+    }
+
+    .btn {
+      height: 40px;
+      padding: 0 18px;
+      border: none;
+      border-radius: 6px;
+      cursor: pointer;
+      font-size: .88rem;
+      font-weight: 600;
+      font-family: inherit;
+      transition: background .15s;
+    }
+    .btn-primary { background: var(--primary); color: #fff; }
+    .btn-primary:hover { background: var(--primary-h); }
+    .btn-ghost { background: #f9fafb; color: var(--muted); border: 1.5px solid var(--border); }
+    .btn-ghost:hover { background: #f3f4f6; }
+
+    /* ── Stats bar ── */
+    #statsBar {
+      font-size: .8rem;
+      color: var(--muted);
+      padding: 6px 0 2px;
+    }
+    #statsBar strong { color: var(--text); }
+
+    /* ── Result Table ── */
+    .tbl-wrap { overflow-x: auto; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: .87rem;
+    }
+    thead tr { background: #f9fafb; }
+    th {
+      padding: 10px 14px;
+      text-align: left;
+      font-size: .75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--muted);
+      border-bottom: 2px solid var(--border);
+      white-space: nowrap;
+    }
+    td {
+      padding: 9px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: middle;
+    }
+    tbody tr:last-child td { border-bottom: none; }
+    tbody tr:hover td { background: #f0f9ff; }
+
+    .badge {
+      display: inline-block;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: .75rem;
+      font-weight: 700;
+      letter-spacing: .03em;
+    }
+    .badge-blue { background: #dbeafe; color: #1e40af; }
+    .badge-green { background: #d1fae5; color: #065f46; }
+
+    code.pn {
+      font-family: "Consolas", "Courier New", monospace;
+      font-size: .83rem;
+      background: #f3f4f6;
+      border: 1px solid #e5e7eb;
+      border-radius: 4px;
+      padding: 2px 6px;
+    }
+
+    /* Pagination */
+    .pagination {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-top: 14px;
+      flex-wrap: wrap;
+    }
+    .pg-btn {
+      height: 32px;
+      min-width: 32px;
+      padding: 0 8px;
+      border: 1.5px solid var(--border);
+      border-radius: 5px;
+      background: #fff;
+      cursor: pointer;
+      font-size: .82rem;
+      font-family: inherit;
+    }
+    .pg-btn:hover:not(:disabled) { background: #eff6ff; border-color: var(--primary); }
+    .pg-btn.current { background: var(--primary); color: #fff; border-color: var(--primary); font-weight: 700; }
+    .pg-btn:disabled { opacity: .4; cursor: default; }
+    .pg-info { font-size: .8rem; color: var(--muted); }
+
+    /* ── Empty / Error ── */
+    .empty-state {
+      text-align: center;
+      padding: 40px 20px;
+      color: var(--muted);
+    }
+    .empty-state svg { margin: 0 auto 12px; display: block; opacity: .5; }
+    .empty-state p { font-size: .9rem; }
+
+    /* ── Reference Tables ── */
+    .ref-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
+    @media (max-width: 700px) { .ref-grid { grid-template-columns: 1fr; } }
+
+    .ref-table { font-size: .83rem; }
+    .ref-table th { font-size: .72rem; }
+    .ref-table td { padding: 7px 12px; }
+
+    /* ── Loading overlay ── */
+    #loadingOverlay {
+      position: fixed; inset: 0;
+      background: rgba(255,255,255,.85);
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: center;
+      gap: 16px;
+      z-index: 999;
+    }
+    .spinner {
+      width: 48px; height: 48px;
+      border: 4px solid var(--border);
+      border-top-color: var(--primary);
+      border-radius: 50%;
+      animation: spin .7s linear infinite;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loadingOverlay p { color: var(--muted); font-size: .9rem; }
+
+    /* ── Dimension display ── */
+    .dim { font-size: .82rem; color: var(--muted); }
+    .dim strong { color: var(--text); font-family: "Consolas", monospace; }
+
+    /* ── Highlight match ── */
+    mark { background: #fef08a; color: inherit; border-radius: 2px; padding: 0 1px; }
+  </style>
+</head>
+<body>
+
+<!-- Loading -->
+<div id="loadingOverlay">
+  <div class="spinner"></div>
+  <p>正在加载数据…</p>
+</div>
+
+<!-- Header -->
+<header>
+  <svg width="36" height="36" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+       stroke-linecap="round" stroke-linejoin="round">
+    <path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/>
+    <polyline points="3.27 6.96 12 12.01 20.73 6.96"/>
+    <line x1="12" y1="22.08" x2="12" y2="12"/>
+  </svg>
+  <div>
+    <h1>Shipping Box Forecast</h1>
+    <p>PCG 装箱规格查询 — 按料号或类别查询单体包/物流包信息</p>
+  </div>
+</header>
+
+<div class="container">
+
+  <!-- Search Card -->
+  <div class="card">
+    <div class="card-title">🔍 查询条件</div>
+    <div class="search-row">
+
+      <div class="field">
+        <label for="pnInput">料号 (PN)</label>
+        <div class="autocomplete-wrap">
+          <input id="pnInput" type="text" placeholder="输入料号，支持模糊搜索…" autocomplete="off" />
+          <ul id="suggestions"></ul>
+        </div>
+      </div>
+
+      <div class="field">
+        <label for="catSelect">类别 (Category)</label>
+        <select id="catSelect">
+          <option value="">— 全部类别 —</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="boxSelect">单体包类型</label>
+        <select id="boxSelect">
+          <option value="">— 全部 —</option>
+        </select>
+      </div>
+
+      <div class="field">
+        <label for="qtyInput">需求数量</label>
+        <input id="qtyInput" class="qty-input" type="number" min="1" step="1" value="1" />
+      </div>
+
+      <div class="field">
+        <label>托盘尺寸 (cm)</label>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <input id="palletLInput" class="pallet-input" type="number" min="1" step="0.1" value="120" aria-label="托盘长度" />
+          <input id="palletWInput" class="pallet-input" type="number" min="1" step="0.1" value="100" aria-label="托盘宽度" />
+          <input id="palletHInput" class="pallet-input" type="number" min="1" step="0.1" value="120" aria-label="托盘高度" />
+        </div>
+      </div>
+
+      <div class="field" style="flex-direction:row;gap:8px;align-items:flex-end;">
+        <button class="btn btn-primary" id="searchBtn">查询</button>
+        <button class="btn btn-ghost" id="resetBtn">重置</button>
+      </div>
+    </div>
+    <div id="statsBar"></div>
+  </div>
+
+  <!-- Results Card -->
+  <div class="card" id="resultsCard">
+    <div class="card-title">📋 查询结果</div>
+    <div id="resultsBody">
+      <div class="empty-state">
+        <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+          <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+        </svg>
+        <p>请输入料号或选择类别后点击「查询」</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- Reference Tables -->
+  <div class="ref-grid">
+
+    <!-- Unit Box Sizes -->
+    <div class="card">
+      <div class="card-title">📦 单体包规格一览</div>
+      <div class="tbl-wrap">
+        <table class="ref-table" id="unitBoxTable">
+          <thead><tr><th>箱型</th><th>尺寸 (cm) L×W×H</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+    <!-- Logistics Box Sizes -->
+    <div class="card">
+      <div class="card-title">🚚 物流箱规格一览</div>
+      <div class="tbl-wrap">
+        <table class="ref-table" id="logBoxTable">
+          <thead><tr><th>箱号</th><th>尺寸 (cm) L×W×H</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div><!-- /container -->
+
+<script>
+/* ─────────────────────────────────────────────
+   App State
+───────────────────────────────────────────── */
+let DATA = null;           // full data.json
+let pnIndex = {};          // PN -> { cat, boxType }
+let allPns   = [];         // sorted list of all valid PNs
+
+const PAGE_SIZE = 50;
+let currentRows = [];
+let currentPage = 1;
+let currentQuery = '';
+
+/* ─────────────────────────────────────────────
+   Helpers
+───────────────────────────────────────────── */
+const $ = id => document.getElementById(id);
+
+function esc(s) {
+  return String(s).replace(/[&<>"']/g, c =>
+    ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function highlight(text, query) {
+  if (!query) return esc(text);
+  const idx = text.toUpperCase().indexOf(query.toUpperCase());
+  if (idx === -1) return esc(text);
+  return esc(text.slice(0, idx))
+    + '<mark>' + esc(text.slice(idx, idx + query.length)) + '</mark>'
+    + esc(text.slice(idx + query.length));
+}
+
+function fmtDim(raw) {
+  if (!raw) return '<span class="dim">—</span>';
+  const parts = raw.split('*');
+  if (parts.length === 3) {
+    return `<span class="dim"><strong>${esc(parts[0])}</strong> × <strong>${esc(parts[1])}</strong> × <strong>${esc(parts[2])}</strong></span>`;
+  }
+  return `<span class="dim"><strong>${esc(raw)}</strong></span>`;
+}
+
+function parseDim(raw) {
+  if (!raw) return null;
+  const values = String(raw).split(/[x*×]/i).map(v => Number(v.trim()));
+  return values.length === 3 && values.every(v => Number.isFinite(v) && v > 0) ? values : null;
+}
+
+function dimVolume(dim) {
+  return dim[0] * dim[1] * dim[2];
+}
+
+function rotations(dim) {
+  return [
+    [dim[0], dim[1], dim[2]],
+    [dim[0], dim[2], dim[1]],
+    [dim[1], dim[0], dim[2]],
+    [dim[1], dim[2], dim[0]],
+    [dim[2], dim[0], dim[1]],
+    [dim[2], dim[1], dim[0]]
+  ];
+}
+
+function bestFitCount(outerDim, innerDim) {
+  if (!outerDim || !innerDim) return 0;
+  let best = 0;
+  for (const r of rotations(innerDim)) {
+    const count = Math.floor(outerDim[0] / r[0])
+      * Math.floor(outerDim[1] / r[1])
+      * Math.floor(outerDim[2] / r[2]);
+    best = Math.max(best, count);
+  }
+  return best;
+}
+
+function getPositiveNumber(id, fallback) {
+  const value = Number($(id).value);
+  return Number.isFinite(value) && value > 0 ? value : fallback;
+}
+
+function getPackagingCalc(boxType) {
+  const qty = Math.ceil(getPositiveNumber('qtyInput', 1));
+  const unitDim = parseDim(DATA.unitBoxSizes[boxType]);
+  const palletDim = [
+    getPositiveNumber('palletLInput', 120),
+    getPositiveNumber('palletWInput', 100),
+    getPositiveNumber('palletHInput', 120)
+  ];
+
+  if (!unitDim) return null;
+
+  let bestLogBox = null;
+  for (const [logType, rawDim] of Object.entries(DATA.logisticsBoxSizes)) {
+    const logDim = parseDim(rawDim);
+    const capacity = bestFitCount(logDim, unitDim);
+    if (capacity <= 0) continue;
+
+    const candidate = {
+      logType,
+      rawDim,
+      logDim,
+      capacity,
+      volume: dimVolume(logDim)
+    };
+
+    if (!bestLogBox
+      || candidate.capacity > bestLogBox.capacity
+      || (candidate.capacity === bestLogBox.capacity && candidate.volume < bestLogBox.volume)) {
+      bestLogBox = candidate;
+    }
+  }
+
+  if (!bestLogBox) return null;
+
+  const logisticsBoxes = Math.ceil(qty / bestLogBox.capacity);
+  const boxesPerPallet = bestFitCount(palletDim, bestLogBox.logDim);
+
+  return {
+    ...bestLogBox,
+    qty,
+    logisticsBoxes,
+    boxesPerPallet,
+    pallets: boxesPerPallet > 0 ? Math.ceil(logisticsBoxes / boxesPerPallet) : null
+  };
+}
+
+/* ─────────────────────────────────────────────
+   Load Data
+───────────────────────────────────────────── */
+async function loadData() {
+  const resp = await fetch('data.json');
+  if (!resp.ok) throw new Error('无法加载 data.json');
+  DATA = await resp.json();
+
+  // Build pnIndex
+  for (const [cat, pns] of Object.entries(DATA.catPnMap)) {
+    for (const pn of pns) {
+      pnIndex[pn] = { cat, boxType: DATA.boxRules[pn] || '' };
+    }
+  }
+  allPns = Object.keys(pnIndex).sort();
+
+  populateControls();
+  renderRefTables();
+  updateStats();
+  $('loadingOverlay').style.display = 'none';
+}
+
+/* ─────────────────────────────────────────────
+   Populate dropdowns
+───────────────────────────────────────────── */
+function populateControls() {
+  const catSel = $('catSelect');
+  const cats = Object.keys(DATA.catPnMap).sort();
+  for (const c of cats) {
+    const opt = document.createElement('option');
+    opt.value = c;
+    opt.textContent = `${c}  (${DATA.catPnMap[c].length})`;
+    catSel.appendChild(opt);
+  }
+
+  const boxSel = $('boxSelect');
+  const boxes = Object.keys(DATA.unitBoxSizes).sort();
+  for (const b of boxes) {
+    const opt = document.createElement('option');
+    opt.value = b;
+    opt.textContent = `${b}  —  ${DATA.unitBoxSizes[b]}`;
+    boxSel.appendChild(opt);
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Reference tables
+───────────────────────────────────────────── */
+function renderRefTables() {
+  // Unit boxes
+  const ubTbody = $('unitBoxTable').querySelector('tbody');
+  for (const [k, v] of Object.entries(DATA.unitBoxSizes).sort((a,b) => a[0].localeCompare(b[0]))) {
+    ubTbody.innerHTML += `<tr>
+      <td><span class="badge badge-blue">${esc(k)}</span></td>
+      <td>${fmtDim(v)}</td>
+    </tr>`;
+  }
+
+  // Logistics boxes
+  const lbTbody = $('logBoxTable').querySelector('tbody');
+  const lbEntries = Object.entries(DATA.logisticsBoxSizes)
+    .sort((a, b) => Number(a[0]) - Number(b[0]));
+  for (const [k, v] of lbEntries) {
+    lbTbody.innerHTML += `<tr>
+      <td><span class="badge badge-green">No. ${esc(k)}</span></td>
+      <td>${fmtDim(v)}</td>
+    </tr>`;
+  }
+}
+
+/* ─────────────────────────────────────────────
+   Stats bar
+───────────────────────────────────────────── */
+function updateStats() {
+  const total = allPns.length;
+  const cats  = Object.keys(DATA.catPnMap).length;
+  $('statsBar').innerHTML =
+    `共 <strong>${total.toLocaleString()}</strong> 条料号，
+     <strong>${cats}</strong> 个类别，
+     <strong>${Object.keys(DATA.unitBoxSizes).length}</strong> 种单体包型，
+     <strong>${Object.keys(DATA.logisticsBoxSizes).length}</strong> 种物流箱型`;
+}
+
+/* ─────────────────────────────────────────────
+   Search
+───────────────────────────────────────────── */
+function doSearch() {
+  const pnQ    = $('pnInput').value.trim().toUpperCase();
+  const catQ   = $('catSelect').value;
+  const boxQ   = $('boxSelect').value;
+  currentQuery = pnQ;
+
+  let rows = allPns;
+
+  if (pnQ) {
+    rows = rows.filter(pn => pn.toUpperCase().includes(pnQ));
+  }
+  if (catQ) {
+    rows = rows.filter(pn => pnIndex[pn].cat === catQ);
+  }
+  if (boxQ) {
+    rows = rows.filter(pn => pnIndex[pn].boxType === boxQ);
+  }
+
+  currentRows = rows;
+  currentPage = 1;
+  renderTable();
+  hideSuggestions();
+}
+
+function doReset() {
+  $('pnInput').value = '';
+  $('catSelect').value = '';
+  $('boxSelect').value = '';
+  $('qtyInput').value = '1';
+  $('palletLInput').value = '120';
+  $('palletWInput').value = '100';
+  $('palletHInput').value = '120';
+  currentQuery = '';
+  currentRows = [];
+  currentPage = 1;
+  $('resultsBody').innerHTML = `<div class="empty-state">
+    <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+    </svg>
+    <p>请输入料号或选择类别后点击「查询」</p>
+  </div>`;
+  hideSuggestions();
+}
+
+/* ─────────────────────────────────────────────
+   Render Results Table
+───────────────────────────────────────────── */
+function renderTable() {
+  const container = $('resultsBody');
+
+  if (currentRows.length === 0) {
+    container.innerHTML = `<div class="empty-state">
+      <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+        <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
+      </svg>
+      <p>未找到匹配的料号，请尝试其他关键词</p>
+    </div>`;
+    return;
+  }
+
+  const totalPages = Math.ceil(currentRows.length / PAGE_SIZE);
+  const start = (currentPage - 1) * PAGE_SIZE;
+  const pageRows = currentRows.slice(start, start + PAGE_SIZE);
+
+  let html = `
+    <div style="font-size:.82rem;color:var(--muted);margin-bottom:10px;">
+      找到 <strong style="color:var(--text)">${currentRows.length.toLocaleString()}</strong> 条结果，
+      第 ${start+1}–${Math.min(start+PAGE_SIZE, currentRows.length)} 条
+    </div>
+    <div class="tbl-wrap">
+    <table>
+      <thead><tr>
+        <th>#</th>
+        <th>料号 (PN)</th>
+        <th>类别</th>
+        <th>单体包类型</th>
+        <th>单体包尺寸 (cm)</th>
+        <th>推荐物流箱</th>
+        <th>每箱可装</th>
+        <th>物流箱数</th>
+        <th>每托盘箱数</th>
+        <th>托盘数</th>
+      </tr></thead>
+      <tbody>`;
+
+  for (let i = 0; i < pageRows.length; i++) {
+    const pn = pageRows[i];
+    const { cat, boxType } = pnIndex[pn];
+    const dim = DATA.unitBoxSizes[boxType] || '—';
+    const calc = getPackagingCalc(boxType);
+    html += `<tr>
+      <td style="color:var(--muted);font-size:.78rem">${start + i + 1}</td>
+      <td><code class="pn">${highlight(pn, currentQuery)}</code></td>
+      <td><span class="badge badge-blue">${esc(cat)}</span></td>
+      <td><span class="badge badge-green">${esc(boxType)}</span></td>
+      <td>${fmtDim(dim)}</td>
+      <td>${calc ? `<span class="badge badge-green">No. ${esc(calc.logType)}</span><br>${fmtDim(calc.rawDim)}` : '<span class="dim">—</span>'}</td>
+      <td>${calc ? calc.capacity.toLocaleString() : '<span class="dim">—</span>'}</td>
+      <td>${calc ? calc.logisticsBoxes.toLocaleString() : '<span class="dim">—</span>'}</td>
+      <td>${calc && calc.boxesPerPallet > 0 ? calc.boxesPerPallet.toLocaleString() : '<span class="dim">—</span>'}</td>
+      <td>${calc && calc.pallets !== null ? calc.pallets.toLocaleString() : '<span class="dim">—</span>'}</td>
+    </tr>`;
+  }
+
+  html += `</tbody></table></div>`;
+
+  // Pagination
+  if (totalPages > 1) {
+    html += `<div class="pagination" id="pgContainer">`;
+    html += `<button class="pg-btn" onclick="goPage(${currentPage-1})" ${currentPage<=1?'disabled':''}>&#8592;</button>`;
+
+    const maxButtons = 7;
+    let startP = Math.max(1, currentPage - Math.floor(maxButtons/2));
+    let endP   = Math.min(totalPages, startP + maxButtons - 1);
+    if (endP - startP < maxButtons - 1) startP = Math.max(1, endP - maxButtons + 1);
+
+    if (startP > 1) {
+      html += `<button class="pg-btn" onclick="goPage(1)">1</button>`;
+      if (startP > 2) html += `<span class="pg-info">…</span>`;
+    }
+    for (let p = startP; p <= endP; p++) {
+      html += `<button class="pg-btn ${p===currentPage?'current':''}" onclick="goPage(${p})">${p}</button>`;
+    }
+    if (endP < totalPages) {
+      if (endP < totalPages - 1) html += `<span class="pg-info">…</span>`;
+      html += `<button class="pg-btn" onclick="goPage(${totalPages})">${totalPages}</button>`;
+    }
+
+    html += `<button class="pg-btn" onclick="goPage(${currentPage+1})" ${currentPage>=totalPages?'disabled':''}>&#8594;</button>`;
+    html += `<span class="pg-info">共 ${totalPages} 页</span>`;
+    html += `</div>`;
+  }
+
+  container.innerHTML = html;
+}
+
+function goPage(p) {
+  const totalPages = Math.ceil(currentRows.length / PAGE_SIZE);
+  if (p < 1 || p > totalPages) return;
+  currentPage = p;
+  renderTable();
+  $('resultsCard').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+/* ─────────────────────────────────────────────
+   Autocomplete
+───────────────────────────────────────────── */
+let suggestActive = -1;
+
+function showSuggestions(q) {
+  const ul = $('suggestions');
+  if (!q || q.length < 2) { hideSuggestions(); return; }
+  const matches = allPns.filter(pn => pn.toUpperCase().startsWith(q.toUpperCase())).slice(0, 12);
+  if (matches.length === 0) { hideSuggestions(); return; }
+  ul.innerHTML = matches.map(pn => {
+    const { cat } = pnIndex[pn];
+    return `<li data-pn="${esc(pn)}">${highlight(pn, q)}<span class="cat-badge">${esc(cat)}</span></li>`;
+  }).join('');
+  ul.style.display = 'block';
+  suggestActive = -1;
+  ul.querySelectorAll('li').forEach(li => {
+    li.addEventListener('mousedown', e => {
+      e.preventDefault();
+      $('pnInput').value = li.dataset.pn;
+      hideSuggestions();
+      doSearch();
+    });
+  });
+}
+
+function hideSuggestions() {
+  $('suggestions').style.display = 'none';
+  suggestActive = -1;
+}
+
+/* ─────────────────────────────────────────────
+   Event Listeners
+───────────────────────────────────────────── */
+document.addEventListener('DOMContentLoaded', () => {
+  loadData().catch(err => {
+    $('loadingOverlay').innerHTML = `<p style="color:red">加载失败：${esc(err.message)}</p>`;
+  });
+
+  $('searchBtn').addEventListener('click', doSearch);
+  $('resetBtn').addEventListener('click', doReset);
+
+  $('pnInput').addEventListener('input', e => {
+    showSuggestions(e.target.value.trim());
+  });
+
+  $('pnInput').addEventListener('keydown', e => {
+    const ul = $('suggestions');
+    const items = ul.querySelectorAll('li');
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      suggestActive = Math.min(suggestActive + 1, items.length - 1);
+      items.forEach((li, i) => li.classList.toggle('active', i === suggestActive));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      suggestActive = Math.max(suggestActive - 1, -1);
+      items.forEach((li, i) => li.classList.toggle('active', i === suggestActive));
+    } else if (e.key === 'Enter') {
+      if (suggestActive >= 0 && items[suggestActive]) {
+        $('pnInput').value = items[suggestActive].dataset.pn;
+        hideSuggestions();
+      }
+      doSearch();
+    } else if (e.key === 'Escape') {
+      hideSuggestions();
+    }
+  });
+
+  $('pnInput').addEventListener('blur', () => {
+    setTimeout(hideSuggestions, 150);
+  });
+
+  // Enter in select / any field triggers search
+  [$('catSelect'), $('boxSelect')].forEach(el => {
+    el.addEventListener('change', doSearch);
+  });
+
+  [$('qtyInput'), $('palletLInput'), $('palletWInput'), $('palletHInput')].forEach(el => {
+    el.addEventListener('input', () => {
+      if (currentRows.length > 0) renderTable();
+    });
+    el.addEventListener('keydown', e => {
+      if (e.key === 'Enter') doSearch();
+    });
+  });
+});
+</script>
+</body>
+</html>
