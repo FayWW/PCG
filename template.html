@@ -1,0 +1,701 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PCG Shipping Rule</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:ital,wght@0,400;0,500;0,600;0,700&family=Noto+Sans+SC:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+:root {
+  --navy-900: #0a1628;
+  --navy-800: #0f2140;
+  --navy-700: #142d54;
+  --navy-600: #1a3a6a;
+  --navy-500: #2554a0;
+  --blue-accent: #3b82f6;
+  --blue-glow: #60a5fa;
+  --cyan-accent: #22d3ee;
+  --surface-0: #f8fafc;
+  --surface-1: #ffffff;
+  --surface-2: #f1f5f9;
+  --surface-3: #e2e8f0;
+  --text-primary: #0f172a;
+  --text-secondary: #475569;
+  --text-muted: #94a3b8;
+  --border: #e2e8f0;
+  --border-focus: #3b82f6;
+  --row-hover: #f0f7ff;
+  --row-alt: #f8fafc;
+  --shadow-sm: 0 1px 2px rgba(0,0,0,0.05);
+  --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+  --shadow-lg: 0 8px 30px rgba(0,0,0,0.12);
+  --radius: 6px;
+  --font-sans: 'DM Sans', 'Noto Sans SC', sans-serif;
+  --font-mono: 'JetBrains Mono', monospace;
+}
+
+html { font-size: 14px; }
+body {
+  font-family: var(--font-sans);
+  background: var(--surface-0);
+  color: var(--text-primary);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+}
+
+.header {
+  background: linear-gradient(135deg, var(--navy-900) 0%, var(--navy-700) 60%, var(--navy-600) 100%);
+  padding: 2.5rem 2rem 2rem;
+  position: relative;
+  overflow: hidden;
+}
+.header::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 600px 300px at 20% 50%, rgba(59,130,246,0.08) 0%, transparent 70%),
+    radial-gradient(ellipse 400px 200px at 80% 30%, rgba(34,211,238,0.06) 0%, transparent 70%);
+  pointer-events: none;
+}
+.header::after {
+  content: '';
+  position: absolute; bottom: 0; left: 0; right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(59,130,246,0.4), rgba(34,211,238,0.3), transparent);
+}
+.header-inner {
+  max-width: 1600px;
+  margin: 0 auto;
+  position: relative;
+  z-index: 1;
+  text-align: center;
+}
+.header h1 {
+  font-size: 2rem;
+  font-weight: 700;
+  color: #fff;
+  letter-spacing: 0.04em;
+  margin-bottom: 0.4rem;
+}
+.header h1 span {
+  color: var(--cyan-accent);
+  font-weight: 600;
+}
+.header-sub {
+  font-size: 0.85rem;
+  color: rgba(255,255,255,0.5);
+  font-weight: 400;
+  letter-spacing: 0.03em;
+}
+.header-badge {
+  display: inline-block;
+  background: rgba(34,211,238,0.12);
+  border: 1px solid rgba(34,211,238,0.25);
+  color: var(--cyan-accent);
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 0.15rem 0.6rem;
+  border-radius: 20px;
+  margin-left: 0.5rem;
+  vertical-align: middle;
+  letter-spacing: 0.05em;
+}
+
+.filter-bar {
+  background: var(--surface-1);
+  border-bottom: 1px solid var(--border);
+  padding: 1.2rem 2rem;
+  box-shadow: var(--shadow-sm);
+  position: sticky;
+  top: 0;
+  z-index: 100;
+}
+.filter-inner {
+  max-width: 1600px;
+  margin: 0 auto;
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-end;
+  flex-wrap: wrap;
+}
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 140px;
+}
+.filter-group label {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+.filter-group input,
+.filter-group select {
+  font-family: var(--font-sans);
+  font-size: 0.85rem;
+  padding: 0.55rem 0.7rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+  width: 100%;
+}
+.filter-group input:focus,
+.filter-group select:focus {
+  border-color: var(--border-focus);
+  box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+}
+.filter-group select { cursor: pointer; }
+.filter-actions {
+  display: flex;
+  gap: 0.5rem;
+  align-items: flex-end;
+  padding-bottom: 1px;
+}
+.btn {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 0.55rem 1.2rem;
+  border: none;
+  border-radius: var(--radius);
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+}
+.btn-primary {
+  background: var(--blue-accent);
+  color: #fff;
+}
+.btn-primary:hover { background: #2563eb; box-shadow: 0 2px 8px rgba(59,130,246,0.3); }
+.btn-ghost {
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover { background: var(--surface-2); }
+
+.results-bar {
+  max-width: 1600px;
+  margin: 1rem auto 0;
+  padding: 0 2rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+.results-count {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+.results-count strong {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.table-wrap {
+  max-width: 1600px;
+  margin: 0.6rem auto 0;
+  padding: 0 2rem 2rem;
+}
+.table-scroll {
+  overflow-x: auto;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface-1);
+  box-shadow: var(--shadow-md);
+}
+.table-scroll::-webkit-scrollbar { height: 6px; }
+.table-scroll::-webkit-scrollbar-track { background: var(--surface-2); }
+.table-scroll::-webkit-scrollbar-thumb { background: var(--text-muted); border-radius: 3px; }
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+  min-width: 1400px;
+}
+thead {
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+thead th {
+  background: var(--navy-800);
+  color: rgba(255,255,255,0.85);
+  font-weight: 600;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 0.7rem 0.6rem;
+  text-align: left;
+  white-space: nowrap;
+  border-bottom: 2px solid var(--navy-600);
+}
+thead th.group-start {
+  border-left: 2px solid var(--navy-600);
+}
+thead tr.group-header th {
+  background: var(--navy-900);
+  color: var(--cyan-accent);
+  font-size: 0.65rem;
+  letter-spacing: 0.1em;
+  padding: 0.4rem 0.6rem;
+  border-bottom: 1px solid var(--navy-700);
+  text-align: center;
+}
+tbody tr {
+  transition: background 0.15s;
+}
+tbody tr:nth-child(even) { background: var(--row-alt); }
+tbody tr:hover { background: var(--row-hover); }
+tbody td {
+  padding: 0.55rem 0.6rem;
+  border-bottom: 1px solid var(--border);
+  vertical-align: top;
+  color: var(--text-primary);
+  max-width: 220px;
+  line-height: 1.45;
+}
+tbody td.code-cell {
+  font-family: var(--font-mono);
+  font-weight: 500;
+  color: var(--navy-700);
+  font-size: 0.8rem;
+  white-space: nowrap;
+}
+tbody td.name-cell {
+  font-weight: 500;
+  min-width: 180px;
+}
+tbody td.group-start {
+  border-left: 2px solid var(--surface-3);
+}
+
+.tag-pill {
+  display: inline-block;
+  font-size: 0.7rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  background: #e0f2fe;
+  color: #0369a1;
+}
+.tag-pill.geo { background: #ecfdf5; color: #065f46; }
+.tag-pill.term { background: #fef3c7; color: #92400e; }
+
+.expand-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px; height: 22px;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  background: var(--surface-1);
+  cursor: pointer;
+  font-size: 0.7rem;
+  color: var(--text-secondary);
+  transition: all 0.2s;
+}
+.expand-btn:hover { background: var(--surface-2); border-color: var(--blue-accent); color: var(--blue-accent); }
+.expand-btn.open { background: var(--blue-accent); color: #fff; border-color: var(--blue-accent); }
+.detail-row { display: none; }
+.detail-row.open { display: table-row; }
+.detail-row td {
+  background: #fafcff;
+  padding: 1rem 1.2rem;
+  border-bottom: 2px solid var(--blue-accent);
+}
+.detail-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 0.6rem 1.5rem;
+}
+.detail-item {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+}
+.detail-label {
+  font-size: 0.65rem;
+  font-weight: 600;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+.detail-value {
+  font-size: 0.8rem;
+  color: var(--text-primary);
+  line-height: 1.4;
+  word-break: break-word;
+}
+.detail-value:empty::after {
+  content: '\2014';
+  color: var(--text-muted);
+}
+
+.pagination {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 0.8rem 2rem 2rem;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 0.3rem;
+}
+.page-btn {
+  font-family: var(--font-sans);
+  font-size: 0.8rem;
+  font-weight: 500;
+  min-width: 34px;
+  height: 34px;
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface-1);
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-btn:hover { background: var(--surface-2); border-color: var(--blue-accent); color: var(--blue-accent); }
+.page-btn.active {
+  background: var(--blue-accent);
+  color: #fff;
+  border-color: var(--blue-accent);
+}
+.page-btn:disabled { opacity: 0.4; cursor: default; pointer-events: none; }
+.page-ellipsis {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+  padding: 0 0.3rem;
+}
+
+.empty-state {
+  text-align: center;
+  padding: 4rem 2rem;
+  color: var(--text-muted);
+}
+.empty-state p { font-size: 0.9rem; }
+
+@media (max-width: 900px) {
+  .filter-inner { flex-direction: column; }
+  .filter-group { min-width: 100%; }
+  .header h1 { font-size: 1.5rem; }
+  .results-bar, .table-wrap, .pagination { padding-left: 1rem; padding-right: 1rem; }
+}
+</style>
+</head>
+<body>
+<header class="header">
+  <div class="header-inner">
+    <h1>PCG <span>Shipping Rule</span></h1>
+    <p class="header-sub">Shipping rule lookup system <span class="header-badge">Updated __DATE_PLACEHOLDER__</span></p>
+  </div>
+</header>
+
+<div class="filter-bar">
+  <div class="filter-inner">
+    <div class="filter-group" style="flex:1.2">
+      <label>Ship To Code</label>
+      <input type="text" id="f-code" placeholder="Enter code..." autocomplete="off">
+    </div>
+    <div class="filter-group">
+      <label>Country</label>
+      <select id="f-country"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <label>GEO</label>
+      <select id="f-geo"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Sub GEO</label>
+      <select id="f-subgeo"><option value="">All</option></select>
+    </div>
+    <div class="filter-group">
+      <label>Term</label>
+      <select id="f-term"><option value="">All</option></select>
+    </div>
+    <div class="filter-actions">
+      <button class="btn btn-primary" id="btn-search">Search</button>
+      <button class="btn btn-ghost" id="btn-reset">Reset</button>
+    </div>
+  </div>
+</div>
+
+<div class="results-bar">
+  <div class="results-count" id="results-count"></div>
+</div>
+
+<div class="table-wrap">
+  <div class="table-scroll" id="table-scroll">
+    <table>
+      <thead>
+        <tr class="group-header">
+          <th></th>
+          <th colspan="7">Basic Info</th>
+          <th colspan="3" class="group-start">Contacts</th>
+          <th colspan="4" class="group-start">Rules &amp; Controls</th>
+          <th colspan="6" class="group-start">Shipping Schedule</th>
+        </tr>
+        <tr>
+          <th style="width:36px"></th>
+          <th>Code</th>
+          <th>Ship To Name</th>
+          <th>Country</th>
+          <th>GEO</th>
+          <th>Sub GEO</th>
+          <th>Term</th>
+          <th>Incoterm</th>
+          <th class="group-start">Logistics Focal</th>
+          <th>HIC Focal</th>
+          <th>FF/Planning</th>
+          <th class="group-start">Merge Rule</th>
+          <th>Hold</th>
+          <th>GL</th>
+          <th>CC GL</th>
+          <th class="group-start">Normal-20</th>
+          <th>Normal-40</th>
+          <th>Normal-60</th>
+          <th>DG-20</th>
+          <th>DG-40</th>
+          <th>DG-60</th>
+        </tr>
+      </thead>
+      <tbody id="table-body"></tbody>
+    </table>
+  </div>
+</div>
+
+<div class="pagination" id="pagination"></div>
+<script>
+// Data injection point
+window.PCG_DATA = __DATA_PLACEHOLDER__;
+</script>
+<script>
+// PLACEHOLDER: Application logic
+(function() {
+  const PER_PAGE = 20;
+  let filtered = [];
+  let currentPage = 1;
+  let openRows = new Set();
+
+  const $ = id => document.getElementById(id);
+  const fCode = $('f-code'), fCountry = $('f-country'), fGeo = $('f-geo'), fSubgeo = $('f-subgeo'), fTerm = $('f-term');
+
+  // Column keys for the compact table
+  const mainCols = [
+    'ship to code','ship to name','country','GEO','sub GEO','Term','Incoterm',
+    'Logistics Focal','Hic Focal','货代/规则指定人 (包括FF/Planning/运输team）',
+    '普货合并规则','卡控不出 （仓库）','GL（客服）','CC GL',
+    '普货-20','普货-40','普货-60','DG-20','DG-40','DG-60'
+  ];
+
+  // Extra detail fields shown on expand
+  const detailFields = [
+    { key: '快递账号', label: 'Express Account' },
+    { key: '货代账号', label: 'Forwarder Account' },
+    { key: 'SinglePack', label: 'SinglePack' },
+    { key: 'Brand Model', label: 'Brand Model' },
+    { key: 'Palletization', label: 'Palletization' },
+    { key: 'PP Flag YES 快递( DG不适用)', label: 'PP Flag Express' },
+    { key: 'PP Flag YES 空运货代 (部分DG不适用）', label: 'PP Flag Air Freight' },
+    { key: '地址', label: 'Address / 地址' },
+    { key: 'Booking/Greenlight 收件人', label: 'Booking/GL Recipient' },
+    { key: '备注', label: 'Remark / 备注' }
+  ];
+
+  function populateSelect(sel, values) {
+    values.forEach(v => {
+      const o = document.createElement('option');
+      o.value = v; o.textContent = v;
+      sel.appendChild(o);
+    });
+  }
+
+  function init() {
+    const d = window.PCG_DATA;
+    if (!d) return;
+    populateSelect(fCountry, d.filters.countries);
+    populateSelect(fGeo, d.filters.geos);
+    populateSelect(fSubgeo, d.filters.subgeos);
+    populateSelect(fTerm, d.filters.terms);
+    filtered = d.data.slice();
+    render();
+  }
+
+  function applyFilters() {
+    const code = fCode.value.trim().toLowerCase();
+    const country = fCountry.value;
+    const geo = fGeo.value;
+    const subgeo = fSubgeo.value;
+    const term = fTerm.value;
+    filtered = window.PCG_DATA.data.filter(r => {
+      if (code && !String(r['ship to code']).toLowerCase().includes(code)) return false;
+      if (country && r['country'] !== country) return false;
+      if (geo && r['GEO'] !== geo) return false;
+      if (subgeo && r['sub GEO'] !== subgeo) return false;
+      if (term && r['Term'] !== term) return false;
+      return true;
+    });
+    currentPage = 1;
+    openRows.clear();
+    render();
+  }
+
+  function resetFilters() {
+    fCode.value = '';
+    fCountry.value = '';
+    fGeo.value = '';
+    fSubgeo.value = '';
+    fTerm.value = '';
+    filtered = window.PCG_DATA.data.slice();
+    currentPage = 1;
+    openRows.clear();
+    render();
+  }
+
+  function esc(s) {
+    if (!s) return '';
+    const d = document.createElement('div');
+    d.textContent = s;
+    return d.innerHTML;
+  }
+
+  function cellHTML(key, val) {
+    if (!val) return '<span style="color:var(--text-muted)">\u2014</span>';
+    const v = esc(val);
+    if (key === 'ship to code') return '<span style="font-family:var(--font-mono);font-weight:500;color:var(--navy-700)">' + v + '</span>';
+    if (key === 'GEO') return '<span class="tag-pill geo">' + v + '</span>';
+    if (key === 'Term') return '<span class="tag-pill term">' + v + '</span>';
+    if (key === 'country') return '<span class="tag-pill">' + v + '</span>';
+    return v;
+  }
+
+  function render() {
+    const total = filtered.length;
+    const pages = Math.ceil(total / PER_PAGE) || 1;
+    if (currentPage > pages) currentPage = pages;
+    const start = (currentPage - 1) * PER_PAGE;
+    const slice = filtered.slice(start, start + PER_PAGE);
+
+    $('results-count').innerHTML = 'Showing <strong>' + slice.length + '</strong> of <strong>' + total + '</strong> records';
+
+    const tbody = $('table-body');
+    let html = '';
+    slice.forEach((row, idx) => {
+      const rid = start + idx;
+      const isOpen = openRows.has(rid);
+      html += '<tr>';
+      html += '<td><button class="expand-btn' + (isOpen ? ' open' : '') + '" data-rid="' + rid + '">' + (isOpen ? '\u2212' : '+') + '</button></td>';
+      mainCols.forEach((key, ci) => {
+        let cls = '';
+        if (ci === 7 || ci === 10 || ci === 14) cls = ' class="group-start"';
+        // Truncate long shipping schedule cells
+        let val = row[key] || '';
+        if (ci >= 14 && val.length > 50) {
+          html += '<td' + cls + ' title="' + esc(val) + '" style="font-size:0.72rem;max-width:160px;white-space:normal;word-break:break-word;color:var(--text-secondary)">' + esc(val.substring(0, 50)) + '...</td>';
+        } else {
+          html += '<td' + cls + '>' + cellHTML(key, val) + '</td>';
+        }
+      });
+      html += '</tr>';
+
+      // Detail row
+      html += '<tr class="detail-row' + (isOpen ? ' open' : '') + '" data-detail="' + rid + '"><td colspan="21"><div class="detail-grid">';
+      // Also show full shipping schedules in detail
+      const allDetail = [
+        { key: '普货-20', label: 'Normal-20 Schedule' },
+        { key: '普货-40', label: 'Normal-40 Schedule' },
+        { key: '普货-60', label: 'Normal-60 Schedule' },
+        { key: 'DG-20', label: 'DG-20 Schedule' },
+        { key: 'DG-40', label: 'DG-40 Schedule' },
+        { key: 'DG-60', label: 'DG-60 Schedule' },
+        ...detailFields
+      ];
+      allDetail.forEach(f => {
+        html += '<div class="detail-item"><div class="detail-label">' + esc(f.label) + '</div><div class="detail-value">' + esc(row[f.key] || '') + '</div></div>';
+      });
+      html += '</div></td></tr>';
+    });
+
+    if (!slice.length) {
+      html = '<tr><td colspan="21"><div class="empty-state"><p>No matching records found. Try adjusting your filters.</p></div></td></tr>';
+    }
+
+    tbody.innerHTML = html;
+    renderPagination(pages);
+  }
+
+  function renderPagination(pages) {
+    if (pages <= 1) { $('pagination').innerHTML = ''; return; }
+    let html = '<button class="page-btn" data-p="prev" ' + (currentPage===1?'disabled':'') + '>&lsaquo;</button>';
+    const range = [];
+    range.push(1);
+    let lo = Math.max(2, currentPage - 2), hi = Math.min(pages - 1, currentPage + 2);
+    if (lo > 2) range.push('...');
+    for (let i = lo; i <= hi; i++) range.push(i);
+    if (hi < pages - 1) range.push('...');
+    if (pages > 1) range.push(pages);
+    range.forEach(p => {
+      if (p === '...') { html += '<span class="page-ellipsis">...</span>'; }
+      else { html += '<button class="page-btn' + (p===currentPage?' active':'') + '" data-p="' + p + '">' + p + '</button>'; }
+    });
+    html += '<button class="page-btn" data-p="next" ' + (currentPage===pages?'disabled':'') + '>&rsaquo;</button>';
+    $('pagination').innerHTML = html;
+  }
+
+  // Events
+  $('btn-search').addEventListener('click', applyFilters);
+  $('btn-reset').addEventListener('click', resetFilters);
+  fCode.addEventListener('keydown', e => { if (e.key === 'Enter') applyFilters(); });
+
+  // Cascade: when GEO changes, filter subgeo options
+  fGeo.addEventListener('change', () => {
+    const geo = fGeo.value;
+    const subs = geo
+      ? [...new Set(window.PCG_DATA.data.filter(r => r['GEO'] === geo).map(r => r['sub GEO']).filter(Boolean))].sort()
+      : window.PCG_DATA.filters.subgeos;
+    fSubgeo.innerHTML = '<option value="">All</option>';
+    populateSelect(fSubgeo, subs);
+  });
+
+  // Pagination clicks
+  $('pagination').addEventListener('click', e => {
+    const btn = e.target.closest('.page-btn');
+    if (!btn || btn.disabled) return;
+    const p = btn.dataset.p;
+    if (p === 'prev') currentPage--;
+    else if (p === 'next') currentPage++;
+    else currentPage = parseInt(p);
+    openRows.clear();
+    render();
+    $('table-scroll').scrollTop = 0;
+  });
+
+  // Expand/collapse
+  $('table-body').addEventListener('click', e => {
+    const btn = e.target.closest('.expand-btn');
+    if (!btn) return;
+    const rid = parseInt(btn.dataset.rid);
+    if (openRows.has(rid)) openRows.delete(rid);
+    else openRows.add(rid);
+    const detailRow = document.querySelector('[data-detail="' + rid + '"]');
+    if (detailRow) detailRow.classList.toggle('open');
+    btn.classList.toggle('open');
+    btn.textContent = btn.classList.contains('open') ? '\u2212' : '+';
+  });
+
+  init();
+})();
+</script>
+</body>
+</html>
